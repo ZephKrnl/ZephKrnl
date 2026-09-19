@@ -53,3 +53,7 @@ desktop/discord-presence/discord-presence.json
 
 # Local profile site data
 artifacts/zeph-profile/.data/
+
+# Local environment values
+*.local
+!.env.example
