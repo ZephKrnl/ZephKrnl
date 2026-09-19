@@ -21,6 +21,13 @@ const skills = [
 const shrimpPieces = Array.from({ length: 20 }, (_, index) => index);
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
 const localGuestbookKey = 'zeph-profile-sticky-notes';
+const profanityTerms = ['fuck', 'shit', 'bitch', 'cunt', 'nigger', 'faggot'];
+
+function containsProfanity(value: string) {
+  const normalized = value.toLocaleLowerCase();
+  return profanityTerms.some((term) => new RegExp(`(^|\\s)${term}(?=\\s|$)`, 'i').test(normalized));
+}
+
 function mapSupabaseNote(note: { id: string; name: string; message: string; created_at: string; approved: boolean }): GuestbookEntry {
   return { id: note.id, name: note.name, message: note.message, createdAt: note.created_at, approved: note.approved };
 }
@@ -37,11 +44,11 @@ async function fetchSupabaseNotes() {
   return (data ?? []).map(mapSupabaseNote);
 }
 
-async function submitSupabaseNote(name: string, message: string) {
+async function submitSupabaseNote(name: string, message: string, approved: boolean) {
   if (!supabase) throw new Error('Supabase is not configured');
   const { error } = await supabase
     .from('sticky_notes')
-    .insert({ name, message, approved: false });
+    .insert({ name, message, approved });
   if (error) throw new Error(`Supabase note submission failed: ${error.message}`);
 }
 
@@ -326,8 +333,11 @@ function App() {
     setGuestbookNotice('');
     try {
       if (supabase) {
-        await submitSupabaseNote(guestbookName.trim().slice(0, 40), guestbookMessage.trim().slice(0, 280));
-        setGuestbookNotice('Your note was submitted for approval.');
+        const name = guestbookName.trim().slice(0, 40);
+        const message = guestbookMessage.trim().slice(0, 280);
+        const approved = !containsProfanity(`${name} ${message}`);
+        await submitSupabaseNote(name, message, approved);
+        setGuestbookNotice(approved ? 'Your note is live.' : 'Your note was submitted for approval.');
         setGuestbookName('');
         setGuestbookMessage('');
         return;
