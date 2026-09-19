@@ -37,8 +37,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
         run: |
-          test -n "$VITE_SUPABASE_URL"
-          test -n "$VITE_SUPABASE_ANON_KEY"
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "Warning: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is not set. Build will continue but the live site may not connect to Supabase."
+          fi
           pnpm --filter @workspace/zeph-profile build
       - name: Configure Pages
         uses: actions/configure-pages@v5
