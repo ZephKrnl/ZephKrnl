@@ -19,6 +19,7 @@ const skills = [
 ];
 const shrimpPieces = Array.from({ length: 20 }, (_, index) => index);
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
+const localGuestbookKey = 'zeph-profile-sticky-notes';
 
 type DiscordProfile = {
   username: string;
@@ -209,11 +210,22 @@ function App() {
 
   useEffect(() => {
     document.title = 'Zeph — Digital freedom is an illusion.';
+    const loadLocalGuestbook = () => {
+      try {
+        const stored = localStorage.getItem(localGuestbookKey);
+        if (stored) setGuestbook(JSON.parse(stored) as GuestbookEntry[]);
+      } catch {
+        setGuestbook([]);
+      }
+    };
     const refreshGuestbook = () => {
       void fetch('/api/guestbook')
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) throw new Error('Guestbook API unavailable');
+          return response.json();
+        })
         .then((data: { entries?: GuestbookEntry[] }) => setGuestbook(data.entries ?? []))
-        .catch(() => undefined);
+        .catch(loadLocalGuestbook);
     };
     void fetch('/api/views', { method: 'POST' })
         .then((response) => response.json())
@@ -284,16 +296,31 @@ function App() {
   const submitGuestbook = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setGuestbookNotice('');
-    const response = await fetch('/api/guestbook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: guestbookName, message: guestbookMessage }),
-    });
-    const data = (await response.json()) as { message?: string; error?: string };
-    setGuestbookNotice(data.message ?? data.error ?? 'Unable to send message.');
-    if (response.ok) {
+    try {
+      const response = await fetch('/api/guestbook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: guestbookName, message: guestbookMessage }),
+      });
+      const data = (await response.json()) as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Guestbook API unavailable');
+      setGuestbookNotice(data.message ?? 'Your note is live.');
       setGuestbookName('');
       setGuestbookMessage('');
+    } catch {
+      const localEntry: GuestbookEntry = {
+        id: crypto.randomUUID(),
+        name: guestbookName.trim().slice(0, 40),
+        message: guestbookMessage.trim().slice(0, 280),
+        createdAt: new Date().toISOString(),
+        approved: true,
+      };
+      const nextEntries = [...guestbook, localEntry];
+      localStorage.setItem(localGuestbookKey, JSON.stringify(nextEntries));
+      setGuestbook(nextEntries);
+      setGuestbookName('');
+      setGuestbookMessage('');
+      setGuestbookNotice('Saved in this browser. A backend is required to share it with everyone.');
     }
   };
 
@@ -577,7 +604,7 @@ function App() {
         <form className="guestbook-form" onSubmit={submitGuestbook}>
           <input value={guestbookName} onChange={(event) => setGuestbookName(event.target.value)} placeholder="name" maxLength={40} required />
           <textarea value={guestbookMessage} onChange={(event) => setGuestbookMessage(event.target.value)} placeholder="message" maxLength={280} required />
-          <button type="submit">sign it</button>
+          <button type="submit">submit</button>
         </form>
         {guestbookNotice && <p className="guestbook-notice">{guestbookNotice}</p>}
         <div className="guestbook-entries">
