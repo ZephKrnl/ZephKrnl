@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Zeph Profile"
+description = "A personal animated profile for Zeph, with themed backgrounds, social links, skills, and an immersive entry experience."
+version = "1.0.0"
+id = "artifacts/zeph-profile"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19988
+
+[services.development]
+run = "pnpm --filter @workspace/zeph-profile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zeph-profile", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/zeph-profile/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19988"
+BASE_PATH = "/"

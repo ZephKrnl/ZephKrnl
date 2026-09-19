@@ -1,0 +1,18 @@
+{
+  "clientId": "YOUR_DISCORD_APPLICATION_ID",
+  "clientSecret": "YOUR_DISCORD_CLIENT_SECRET",
+  "authorizeProfile": false,
+  "gatewayBotToken": "YOUR_DISCORD_BOT_TOKEN",
+  "gatewayUserId": "YOUR_DISCORD_USER_ID",
+  "details": "Browsing Zeph's profile",
+  "state": "Digital freedom is an illusion.",
+  "largeImageKey": "zeph",
+  "largeImageText": "Zeph profile",
+  "showElapsedTime": true,
+  "buttons": [
+    {
+      "label": "Open profile",
+      "url": "https://zephknight.dev"
+    }
+  ]
+}
