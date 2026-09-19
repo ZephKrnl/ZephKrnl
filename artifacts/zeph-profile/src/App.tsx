@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, Command, Eye, Github, Youtube } from 'lucide-react';
 import { SiCplusplus, SiCss, SiHtml5, SiJavascript, SiKofi, SiPython } from 'react-icons/si';
+import { supabase } from './supabase';
 
 const socials = [
   { label: 'X', href: 'https://x.com/Zeph_Knight_', icon: Command },
@@ -20,32 +21,28 @@ const skills = [
 const shrimpPieces = Array.from({ length: 20 }, (_, index) => index);
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
 const localGuestbookKey = 'zeph-profile-sticky-notes';
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-function hasSupabase() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
-}
-
-function supabaseHeaders() {
-  return { apikey: supabaseAnonKey!, Authorization: `Bearer ${supabaseAnonKey!}`, 'Content-Type': 'application/json' };
-}
-
 function mapSupabaseNote(note: { id: string; name: string; message: string; created_at: string; approved: boolean }): GuestbookEntry {
   return { id: note.id, name: note.name, message: note.message, createdAt: note.created_at, approved: note.approved };
 }
 
 async function fetchSupabaseNotes() {
-  if (!hasSupabase()) throw new Error('Supabase is not configured');
-  const response = await fetch(`${supabaseUrl}/rest/v1/sticky_notes?select=id,name,message,created_at,approved&approved=eq.true&order=created_at.desc&limit=50`, { headers: supabaseHeaders() });
-  if (!response.ok) throw new Error('Supabase notes request failed');
-  return (await response.json() as Array<{ id: string; name: string; message: string; created_at: string; approved: boolean }>).map(mapSupabaseNote);
+  if (!supabase) throw new Error('Supabase is not configured');
+  const { data, error } = await supabase
+    .from('sticky_notes')
+    .select('id,name,message,created_at,approved')
+    .eq('approved', true)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(`Supabase notes request failed: ${error.message}`);
+  return (data ?? []).map(mapSupabaseNote);
 }
 
 async function submitSupabaseNote(name: string, message: string) {
-  if (!hasSupabase()) throw new Error('Supabase is not configured');
-  const response = await fetch(`${supabaseUrl}/rest/v1/sticky_notes`, { method: 'POST', headers: { ...supabaseHeaders(), Prefer: 'return=representation' }, body: JSON.stringify({ name, message, approved: false }) });
-  if (!response.ok) throw new Error('Supabase note submission failed');
+  if (!supabase) throw new Error('Supabase is not configured');
+  const { error } = await supabase
+    .from('sticky_notes')
+    .insert({ name, message, approved: false });
+  if (error) throw new Error(`Supabase note submission failed: ${error.message}`);
 }
 
 type DiscordProfile = {
@@ -246,7 +243,7 @@ function App() {
       }
     };
     const refreshGuestbook = () => {
-      if (hasSupabase()) {
+      if (supabase) {
         void fetchSupabaseNotes().then(setGuestbook).catch(() => undefined);
         return;
       }
@@ -328,7 +325,7 @@ function App() {
     event.preventDefault();
     setGuestbookNotice('');
     try {
-      if (hasSupabase()) {
+      if (supabase) {
         await submitSupabaseNote(guestbookName.trim().slice(0, 40), guestbookMessage.trim().slice(0, 280));
         setGuestbookNotice('Your note was submitted for approval.');
         setGuestbookName('');
@@ -345,7 +342,12 @@ function App() {
       setGuestbookNotice(data.message ?? 'Your note is live.');
       setGuestbookName('');
       setGuestbookMessage('');
-    } catch {
+    } catch (error) {
+      if (supabase) {
+        console.error('Guestbook submission failed', error);
+        setGuestbookNotice('Unable to submit your note right now. Please try again later.');
+        return;
+      }
       const localEntry: GuestbookEntry = {
         id: crypto.randomUUID(),
         name: guestbookName.trim().slice(0, 40),
