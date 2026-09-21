@@ -1,7 +1,6 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowDown, Command, Eye, Github, Youtube } from 'lucide-react';
+import { ArrowDown, Command, Github, Youtube } from 'lucide-react';
 import { SiCplusplus, SiCss, SiHtml5, SiJavascript, SiKofi, SiPython } from 'react-icons/si';
-import { supabase } from './supabase';
 
 const socials = [
   { label: 'X', href: 'https://x.com/Zeph_Knight_', icon: Command },
@@ -18,39 +17,7 @@ const skills = [
   { label: 'CSS', Icon: SiCss },
   { label: 'Python', Icon: SiPython },
 ];
-const shrimpPieces = Array.from({ length: 20 }, (_, index) => index);
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
-const localGuestbookKey = 'zeph-profile-sticky-notes';
-const profanityTerms = ['fuck', 'shit', 'bitch', 'cunt', 'nigger', 'faggot'];
-
-function containsProfanity(value: string) {
-  const normalized = value.toLocaleLowerCase();
-  return profanityTerms.some((term) => new RegExp(`(^|\\s)${term}(?=\\s|$)`, 'i').test(normalized));
-}
-
-function mapSupabaseNote(note: { id: string; name: string; message: string; created_at: string; approved: boolean }): GuestbookEntry {
-  return { id: note.id, name: note.name, message: note.message, createdAt: note.created_at, approved: note.approved };
-}
-
-async function fetchSupabaseNotes() {
-  if (!supabase) throw new Error('Supabase is not configured');
-  const { data, error } = await supabase
-    .from('guestbook')
-    .select('id,name,message,created_at,approved')
-    .eq('approved', true)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw new Error(`Supabase notes request failed: ${error.message}`);
-  return (data ?? []).map(mapSupabaseNote);
-}
-
-async function submitSupabaseNote(name: string, message: string, approved: boolean) {
-  if (!supabase) throw new Error('Supabase is not configured');
-  const { error } = await supabase
-    .from('guestbook')
-    .insert({ name, message, approved });
-  if (error) throw new Error(`Supabase note submission failed: ${error.message}`);
-}
 
 type DiscordProfile = {
   username: string;
@@ -66,23 +33,6 @@ type DiscordActivity = {
   startedAt?: number;
   endsAt?: number;
 };
-type ViewRecord = {
-  viewedAt: string;
-  device: string;
-  model?: string;
-  osVersion?: string;
-  browser: string;
-  region: string;
-  provider: string;
-};
-type GuestbookEntry = {
-  id: string;
-  name: string;
-  message: string;
-  createdAt: string;
-  approved: boolean;
-};
-
 function ZephLogo() {
   return (
     <svg className="zeph-logo" viewBox="0 0 64 64" role="img" aria-label="Zeph logo">
@@ -136,27 +86,6 @@ function App() {
   const [discordProfile, setDiscordProfile] = useState<DiscordProfile | null>(null);
   const [oauthProfile, setOauthProfile] = useState<DiscordProfile | null>(null);
   const [discordActivity, setDiscordActivity] = useState<DiscordActivity | null>(null);
-  const [viewCount, setViewCount] = useState(0);
-  const [debugOpen, setDebugOpen] = useState(false);
-  const [debugTab, setDebugTab] = useState<'overview' | 'entries' | 'browser'>('overview');
-  const [adminTab, setAdminTab] = useState<'history' | 'notes'>('history');
-  const [noteTab, setNoteTab] = useState<'pending' | 'approved'>('pending');
-  const [historyPage, setHistoryPage] = useState(1);
-  const [notesPage, setNotesPage] = useState(1);
-  const [viewHistory, setViewHistory] = useState<ViewRecord[]>([]);
-  const [guestbook, setGuestbook] = useState<GuestbookEntry[]>([]);
-  const [adminGuestbook, setAdminGuestbook] = useState<GuestbookEntry[]>([]);
-  const [guestbookName, setGuestbookName] = useState('');
-  const [guestbookMessage, setGuestbookMessage] = useState('');
-  const [guestbookNotice, setGuestbookNotice] = useState('');
-  const stickyClickCounts = useRef(new Map<string, number>());
-  const stickyCooldowns = useRef(new Map<string, number>());
-  const easterEggTimer = useRef<number | null>(null);
-  const shakeTimer = useRef<number | null>(null);
-  const [easterEggNote, setEasterEggNote] = useState<string | null>(null);
-  const [shakingNote, setShakingNote] = useState<string | null>(null);
-  const [stickyClickVersion, setStickyClickVersion] = useState(0);
-  const [shrimpPattern, setShrimpPattern] = useState(() => shrimpPieces.map(() => ({ y: 50, delay: 0, duration: 2.5 })));
 
   const liveDiscordProfile = oauthProfile ?? discordProfile;
   const profileName = liveDiscordProfile?.username ?? 'Zeph';
@@ -242,33 +171,6 @@ function App() {
 
   useEffect(() => {
     document.title = 'Zeph — Digital freedom is an illusion.';
-    const loadLocalGuestbook = () => {
-      try {
-        const stored = localStorage.getItem(localGuestbookKey);
-        if (stored) setGuestbook(JSON.parse(stored) as GuestbookEntry[]);
-      } catch {
-        setGuestbook([]);
-      }
-    };
-    const refreshGuestbook = () => {
-      if (supabase) {
-        void fetchSupabaseNotes().then(setGuestbook).catch(() => undefined);
-        return;
-      }
-      void fetch('/api/guestbook')
-        .then((response) => {
-          if (!response.ok) throw new Error('Guestbook API unavailable');
-          return response.json();
-        })
-        .then((data: { entries?: GuestbookEntry[] }) => setGuestbook(data.entries ?? []))
-        .catch(loadLocalGuestbook);
-    };
-    void fetch('/api/views', { method: 'POST' })
-        .then((response) => response.json())
-        .then((data: { views?: number }) => setViewCount(data.views ?? 0))
-        .catch(() => undefined);
-    refreshGuestbook();
-    const guestbookRefresh = window.setInterval(refreshGuestbook, 5000);
     const onMove = (event: MouseEvent) => setCursor({ x: event.clientX, y: event.clientY });
     const onOver = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -297,143 +199,8 @@ function App() {
       window.removeEventListener('mouseover', onOver);
       window.removeEventListener('mousemove', onTiltMove);
       window.removeEventListener('mouseout', onTiltLeave);
-      window.clearInterval(guestbookRefresh);
     };
   }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.shiftKey && event.key.toLowerCase() === 'd')) return;
-      event.preventDefault();
-      setDebugOpen((open) => !open);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  const submitGuestbook = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setGuestbookNotice('');
-    try {
-      if (supabase) {
-        const name = guestbookName.trim().slice(0, 40);
-        const message = guestbookMessage.trim().slice(0, 280);
-        const approved = !containsProfanity(`${name} ${message}`);
-        await submitSupabaseNote(name, message, approved);
-        setGuestbookNotice(approved ? 'Your note is live.' : 'Your note was submitted for approval.');
-        setGuestbookName('');
-        setGuestbookMessage('');
-        return;
-      }
-      const response = await fetch('/api/guestbook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: guestbookName, message: guestbookMessage }),
-      });
-      const data = (await response.json()) as { message?: string; error?: string };
-      if (!response.ok) throw new Error(data.error ?? 'Guestbook API unavailable');
-      setGuestbookNotice(data.message ?? 'Your note is live.');
-      setGuestbookName('');
-      setGuestbookMessage('');
-    } catch (error) {
-      if (supabase) {
-        console.error('Guestbook submission failed', error);
-        setGuestbookNotice('Unable to submit your note right now. Please try again later.');
-        return;
-      }
-      const localEntry: GuestbookEntry = {
-        id: crypto.randomUUID(),
-        name: guestbookName.trim().slice(0, 40),
-        message: guestbookMessage.trim().slice(0, 280),
-        createdAt: new Date().toISOString(),
-        approved: true,
-      };
-      const nextEntries = [...guestbook, localEntry];
-      localStorage.setItem(localGuestbookKey, JSON.stringify(nextEntries));
-      setGuestbook(nextEntries);
-      setGuestbookName('');
-      setGuestbookMessage('');
-      setGuestbookNotice('Saved in this browser. A backend is required to share it with everyone.');
-    }
-  };
-
-  const moderateGuestbook = async (id: string, approved: boolean) => {
-    await fetch('/api/admin/guestbook', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, approved }),
-    });
-    setAdminGuestbook((entries) => entries.map((entry) => entry.id === id ? { ...entry, approved } : entry));
-    if (approved) {
-      const response = await fetch('/api/guestbook');
-      const data = (await response.json()) as { entries?: GuestbookEntry[] };
-      setGuestbook(data.entries ?? []);
-    } else {
-      setGuestbook((entries) => entries.filter((entry) => entry.id !== id));
-    }
-  };
-
-  const deleteGuestbookEntry = async (id: string) => {
-    const response = await fetch('/api/admin/guestbook', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-      setAdminGuestbook((entries) => entries.filter((entry) => entry.id !== id));
-      setGuestbook((entries) => entries.filter((entry) => entry.id !== id));
-    }
-  };
-
-  const triggerStickyEgg = (id: string) => {
-    const onlyTriggerableNote = guestbook[0]?.id;
-    if (!onlyTriggerableNote || id !== onlyTriggerableNote) return;
-
-    const now = Date.now();
-    const cooldownUntil = stickyCooldowns.current.get(id) ?? 0;
-    if (cooldownUntil > now) return;
-
-    const clicks = (stickyClickCounts.current.get(id) ?? 0) + 1;
-    if (clicks < 5) {
-      stickyClickCounts.current.set(id, clicks);
-      return;
-    }
-
-    stickyClickCounts.current.set(id, 0);
-    setStickyClickVersion((version) => version + 1);
-    stickyCooldowns.current.set(id, now + 10000);
-    setShrimpPattern(shrimpPieces.map(() => ({
-      y: 4 + Math.random() * 92,
-      delay: Math.random() * .7,
-      duration: 2.1 + Math.random() * 1.2,
-    })));
-    setShakingNote(id);
-    if (shakeTimer.current !== null) window.clearTimeout(shakeTimer.current);
-    shakeTimer.current = window.setTimeout(() => {
-      setShakingNote(null);
-      shakeTimer.current = null;
-    }, 800);
-    setEasterEggNote(id);
-    if (easterEggTimer.current !== null) window.clearTimeout(easterEggTimer.current);
-    easterEggTimer.current = window.setTimeout(() => {
-      setEasterEggNote(null);
-      easterEggTimer.current = null;
-    }, 5000);
-  };
-
-  useEffect(() => () => {
-    if (easterEggTimer.current !== null) window.clearTimeout(easterEggTimer.current);
-    if (shakeTimer.current !== null) window.clearTimeout(shakeTimer.current);
-  }, []);
-
-  const pageSize = 10;
-  const pendingNotes = adminGuestbook.filter((entry) => !entry.approved);
-  const approvedNotes = adminGuestbook.filter((entry) => entry.approved);
-  const noteEntries = noteTab === 'pending' ? pendingNotes : approvedNotes;
-  const historyPageCount = Math.max(1, Math.ceil(viewHistory.length / pageSize));
-  const notesPageCount = Math.max(1, Math.ceil(noteEntries.length / pageSize));
-  const visibleHistory = viewHistory.slice((historyPage - 1) * pageSize, historyPage * pageSize);
-  const visibleNotes = noteEntries.slice((notesPage - 1) * pageSize, notesPage * pageSize);
 
   useEffect(() => {
     let active = true;
@@ -566,15 +333,12 @@ function App() {
           </span>
           <span>3 socials</span>
         </div>
-        <div className="view-count"><Eye aria-hidden="true" /> <span>{viewCount} views</span></div>
-
       </section>
 
       <nav className="section-index" aria-label="Page sections">
         <a href="#profile">profile</a>
         <a href="#about">about me</a>
         <a href="#projects">projects</a>
-        <a href="#sticky-notes">sticky notes</a>
       </nav>
 
       <section className="about-section" id="about" aria-label="About me">
@@ -624,51 +388,6 @@ function App() {
         </div>
       </section>
 
-      <a className="guestbook-cue" href="#sticky-notes" aria-label="Scroll to sticky notes">
-        <span>sticky notes</span>
-        <ArrowDown aria-hidden="true" />
-      </a>
-
-      <section className="guestbook" id="sticky-notes" aria-label="Sticky notes">
-        <div className="guestbook-heading">
-          <span className="eyebrow">a little space below</span>
-          <h2>sticky notes</h2>
-        </div>
-        <form className="guestbook-form" onSubmit={submitGuestbook}>
-          <input value={guestbookName} onChange={(event) => setGuestbookName(event.target.value)} placeholder="name" maxLength={40} required />
-          <textarea value={guestbookMessage} onChange={(event) => setGuestbookMessage(event.target.value)} placeholder="message" maxLength={280} required />
-          <button type="submit">submit</button>
-        </form>
-        {guestbookNotice && <p className="guestbook-notice">{guestbookNotice}</p>}
-        <div className="guestbook-entries">
-          {guestbook.length === 0 && <span className="guestbook-empty">No messages yet.</span>}
-          {guestbook.map((entry, index) => (
-            <article
-              className={`guestbook-note note-${index % 5} ${shakingNote === entry.id ? 'is-shaking' : ''}`}
-              key={entry.id}
-              data-click-version={shakingNote === entry.id ? stickyClickVersion : undefined}
-              draggable="false"
-              onClick={() => triggerStickyEgg(entry.id)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  triggerStickyEgg(entry.id);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label={`Sticky note from ${entry.name}`}
-            >
-              <strong>{entry.name}</strong><p>{entry.message}</p>
-            </article>
-          ))}
-        </div>
-        <a className="guestbook-back" href="#top" aria-label="Back to profile">
-          <ArrowDown aria-hidden="true" />
-          <span>back up</span>
-        </a>
-      </section>
-
       {discordActivity && (
         <aside
           className="music-banner"
@@ -684,86 +403,6 @@ function App() {
             />
           )}
         </aside>
-      )}
-
-      {debugOpen && (
-        <aside className="admin-panel" aria-label="Local debug panel">
-          <div className="admin-panel-head">
-            <strong>debug / local mode</strong>
-            <button type="button" onClick={() => setDebugOpen(false)} aria-label="Close debug panel">close</button>
-          </div>
-          <div className="admin-tabs" role="tablist" aria-label="Debug tabs">
-            <button className={debugTab === 'overview' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'overview'} onClick={() => setDebugTab('overview')}>overview</button>
-            <button className={debugTab === 'entries' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'entries'} onClick={() => setDebugTab('entries')}>notes</button>
-            <button className={debugTab === 'browser' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'browser'} onClick={() => setDebugTab('browser')}>browser</button>
-          </div>
-          <div className="admin-panel-list">
-            {debugTab === 'overview' && (
-              <>
-                <div className="admin-view">
-                  <strong>mode</strong>
-                  <span>GitHub Pages static build</span>
-                  <span>Shift + D toggle</span>
-                </div>
-                <div className="admin-view">
-                  <strong>notes</strong>
-                  <span>{guestbook.length} visible entries</span>
-                  <span>{guestbook.filter((entry) => entry.approved).length} approved</span>
-                </div>
-                <div className="admin-view">
-                  <strong>view count</strong>
-                  <span>{viewCount} current total</span>
-                  <span>local browser stat only</span>
-                </div>
-              </>
-            )}
-            {debugTab === 'entries' && (
-              <>
-                <strong className="admin-section-title">local note list</strong>
-                {guestbook.length === 0 && <span className="admin-empty">No notes in local storage.</span>}
-                {guestbook.slice(0, 6).map((entry) => (
-                  <div className="admin-view" key={entry.id}>
-                    <strong>{entry.name}</strong>
-                    <span>{entry.message}</span>
-                    <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
-                  </div>
-                ))}
-              </>
-            )}
-            {debugTab === 'browser' && (
-              <>
-                <div className="admin-view">
-                  <strong>storage</strong>
-                  <span>{localStorage.getItem(localGuestbookKey) ? 'localStorage active' : 'localStorage empty'}</span>
-                  <span>{navigator.userAgent}</span>
-                </div>
-                <div className="admin-view">
-                  <strong>window</strong>
-                  <span>{window.location.origin}</span>
-                  <span>{window.location.pathname}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </aside>
-      )}
-
-      {easterEggNote && (
-        <div className="shrimp-rain" aria-live="polite" aria-label="Sticky note easter egg">
-          {shrimpPieces.map((piece) => (
-            <span
-              className={`shrimp-piece ${piece < 10 ? 'to-left' : 'to-right'}`}
-              key={piece}
-              style={{
-                '--shrimp-y': `${shrimpPattern[piece].y}%`,
-                '--shrimp-delay': `${shrimpPattern[piece].delay}s`,
-                '--shrimp-duration': `${shrimpPattern[piece].duration}s`,
-              } as CSSProperties}
-            >
-              <img src={assetUrl('/assets/shrimp.png')} alt="" draggable="false" />
-            </span>
-          ))}
-        </div>
       )}
       </main>
     </>
