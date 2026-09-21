@@ -138,6 +138,7 @@ function App() {
   const [discordActivity, setDiscordActivity] = useState<DiscordActivity | null>(null);
   const [viewCount, setViewCount] = useState(0);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [debugTab, setDebugTab] = useState<'overview' | 'entries' | 'browser'>('overview');
   const [adminTab, setAdminTab] = useState<'history' | 'notes'>('history');
   const [noteTab, setNoteTab] = useState<'pending' | 'approved'>('pending');
   const [historyPage, setHistoryPage] = useState(1);
@@ -691,32 +692,58 @@ function App() {
             <strong>debug / local mode</strong>
             <button type="button" onClick={() => setDebugOpen(false)} aria-label="Close debug panel">close</button>
           </div>
+          <div className="admin-tabs" role="tablist" aria-label="Debug tabs">
+            <button className={debugTab === 'overview' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'overview'} onClick={() => setDebugTab('overview')}>overview</button>
+            <button className={debugTab === 'entries' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'entries'} onClick={() => setDebugTab('entries')}>notes</button>
+            <button className={debugTab === 'browser' ? 'is-active' : ''} type="button" role="tab" aria-selected={debugTab === 'browser'} onClick={() => setDebugTab('browser')}>browser</button>
+          </div>
           <div className="admin-panel-list">
-            <div className="admin-view">
-              <strong>mode</strong>
-              <span>GitHub Pages static build</span>
-              <span>Shift + D toggle</span>
-            </div>
-            <div className="admin-view">
-              <strong>notes</strong>
-              <span>{guestbook.length} visible entries</span>
-              <span>{guestbook.filter((entry) => entry.approved).length} approved</span>
-            </div>
-            <div className="admin-view">
-              <strong>view count</strong>
-              <span>{viewCount} current total</span>
-              <span>local browser stat only</span>
-            </div>
-            <div className="admin-view">
-              <strong>storage</strong>
-              <span>{localStorage.getItem(localGuestbookKey) ? 'localStorage active' : 'localStorage empty'}</span>
-              <span>{navigator.userAgent}</span>
-            </div>
-            <div className="admin-view">
-              <strong>window</strong>
-              <span>{window.location.origin}</span>
-              <span>{window.location.pathname}</span>
-            </div>
+            {debugTab === 'overview' && (
+              <>
+                <div className="admin-view">
+                  <strong>mode</strong>
+                  <span>GitHub Pages static build</span>
+                  <span>Shift + D toggle</span>
+                </div>
+                <div className="admin-view">
+                  <strong>notes</strong>
+                  <span>{guestbook.length} visible entries</span>
+                  <span>{guestbook.filter((entry) => entry.approved).length} approved</span>
+                </div>
+                <div className="admin-view">
+                  <strong>view count</strong>
+                  <span>{viewCount} current total</span>
+                  <span>local browser stat only</span>
+                </div>
+              </>
+            )}
+            {debugTab === 'entries' && (
+              <>
+                <strong className="admin-section-title">local note list</strong>
+                {guestbook.length === 0 && <span className="admin-empty">No notes in local storage.</span>}
+                {guestbook.slice(0, 6).map((entry) => (
+                  <div className="admin-view" key={entry.id}>
+                    <strong>{entry.name}</strong>
+                    <span>{entry.message}</span>
+                    <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
+                  </div>
+                ))}
+              </>
+            )}
+            {debugTab === 'browser' && (
+              <>
+                <div className="admin-view">
+                  <strong>storage</strong>
+                  <span>{localStorage.getItem(localGuestbookKey) ? 'localStorage active' : 'localStorage empty'}</span>
+                  <span>{navigator.userAgent}</span>
+                </div>
+                <div className="admin-view">
+                  <strong>window</strong>
+                  <span>{window.location.origin}</span>
+                  <span>{window.location.pathname}</span>
+                </div>
+              </>
+            )}
           </div>
         </aside>
       )}
