@@ -137,7 +137,7 @@ function App() {
   const [oauthProfile, setOauthProfile] = useState<DiscordProfile | null>(null);
   const [discordActivity, setDiscordActivity] = useState<DiscordActivity | null>(null);
   const [viewCount, setViewCount] = useState(0);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [adminTab, setAdminTab] = useState<'history' | 'notes'>('history');
   const [noteTab, setNoteTab] = useState<'pending' | 'approved'>('pending');
   const [historyPage, setHistoryPage] = useState(1);
@@ -301,28 +301,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const onKeyDown = async (event: KeyboardEvent) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.shiftKey && event.key.toLowerCase() === 'd')) return;
       event.preventDefault();
-      const password = window.prompt('Admin password');
-      if (!password) return;
-      const login = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      if (!login.ok) {
-        window.alert('Admin access denied.');
-        return;
-      }
-      const response = await fetch('/api/admin/views');
-      if (!response.ok) return;
-      const data = (await response.json()) as { history?: ViewRecord[] };
-      setViewHistory(data.history ?? []);
-      const guestbookResponse = await fetch('/api/admin/guestbook');
-      const guestbookData = (await guestbookResponse.json()) as { entries?: GuestbookEntry[] };
-      setAdminGuestbook(guestbookData.entries ?? []);
-      setAdminOpen(true);
+      setDebugOpen((open) => !open);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -703,63 +685,28 @@ function App() {
         </aside>
       )}
 
-      {adminOpen && (
-        <aside className="admin-panel" aria-label="Private view history">
+      {debugOpen && (
+        <aside className="admin-panel" aria-label="Local debug panel">
           <div className="admin-panel-head">
-            <strong>admin / private tools</strong>
-            <button type="button" onClick={() => setAdminOpen(false)} aria-label="Close view history">close</button>
-          </div>
-          <div className="admin-tabs" role="tablist" aria-label="Admin sections">
-            <button className={adminTab === 'history' ? 'is-active' : ''} type="button" role="tab" aria-selected={adminTab === 'history'} onClick={() => setAdminTab('history')}>01 / history</button>
-            <button className={adminTab === 'notes' ? 'is-active' : ''} type="button" role="tab" aria-selected={adminTab === 'notes'} onClick={() => setAdminTab('notes')}>02 / sticky notes</button>
+            <strong>debug / local mode</strong>
+            <button type="button" onClick={() => setDebugOpen(false)} aria-label="Close debug panel">close</button>
           </div>
           <div className="admin-panel-list">
-            {adminTab === 'history' && (
-              <>
-                <strong className="admin-section-title">view history / page {historyPage}</strong>
-                {viewHistory.length === 0 && <span className="admin-empty">No views recorded yet.</span>}
-                {visibleHistory.map((view) => (
-              <div className="admin-view" key={`${view.viewedAt}-${view.device}`}>
-                <strong>{view.device}</strong>
-                {view.osVersion && <span>OS: {view.osVersion}</span>}
-                <span>{view.region} / {view.provider}</span>
-                <time dateTime={view.viewedAt}>{new Date(view.viewedAt).toLocaleString()}</time>
-                {view.model && <span>Model: {view.model}</span>}
-              </div>
-                ))}
-                <div className="admin-pagination" aria-label="View history pages">
-                  {Array.from({ length: historyPageCount }, (_, index) => index + 1).map((page) => (
-                    <button className={historyPage === page ? 'is-active' : ''} type="button" key={page} onClick={() => setHistoryPage(page)} aria-label={`View history page ${page}`}>{page}</button>
-                  ))}
-                </div>
-              </>
-            )}
-            {adminTab === 'notes' && (
-              <>
-                <div className="admin-note-tabs" role="tablist" aria-label="Sticky note sections">
-                  <button className={noteTab === 'pending' ? 'is-active' : ''} type="button" role="tab" aria-selected={noteTab === 'pending'} onClick={() => { setNoteTab('pending'); setNotesPage(1); }}>approval ({pendingNotes.length})</button>
-                  <button className={noteTab === 'approved' ? 'is-active' : ''} type="button" role="tab" aria-selected={noteTab === 'approved'} onClick={() => { setNoteTab('approved'); setNotesPage(1); }}>approved ({approvedNotes.length})</button>
-                </div>
-                <strong className="admin-section-title">sticky notes / page {notesPage}</strong>
-                {visibleNotes.length === 0 && <span className="admin-empty">No notes in this section.</span>}
-                {visibleNotes.map((entry) => (
-              <div className="admin-view" key={entry.id}>
-                <strong>{entry.name}</strong>
-                <span>{entry.message}</span>
-                <span>{noteTab === 'pending' ? 'flagged for approval' : 'published'}</span>
-                <div className="admin-actions">
-                  {noteTab === 'pending' && <button type="button" onClick={() => moderateGuestbook(entry.id, true)}>approve</button>}
-                  <button type="button" onClick={() => deleteGuestbookEntry(entry.id)}>delete</button>
-                </div>
-              </div>
-                ))}
-                <div className="admin-pagination" aria-label="Sticky note pages">
-                  {Array.from({ length: notesPageCount }, (_, index) => index + 1).map((page) => (
-                    <button className={notesPage === page ? 'is-active' : ''} type="button" key={page} onClick={() => setNotesPage(page)} aria-label={`Sticky notes page ${page}`}>{page}</button>
-                  ))}
-                </div>
-              </>
-            )}
+            <div className="admin-view">
+              <strong>mode</strong>
+              <span>GitHub Pages static build</span>
+              <span>Shift + D toggle</span>
+            </div>
+            <div className="admin-view">
+              <strong>notes</strong>
+              <span>{guestbook.length} visible entries</span>
+              <span>{guestbook.filter((entry) => entry.approved).length} approved</span>
+            </div>
+            <div className="admin-view">
+              <strong>view count</strong>
+              <span>{viewCount} current total</span>
+              <span>local browser stat only</span>
+            </div>
           </div>
         </aside>
       )}
