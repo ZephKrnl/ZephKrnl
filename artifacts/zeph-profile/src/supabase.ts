@@ -8,4 +8,7 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | unde
 
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+  : (() => {
+      console.warn('Supabase is not configured for this build. Falling back to browser-local storage.');
+      return null;
+    })();

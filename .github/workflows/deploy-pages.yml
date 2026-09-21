@@ -28,6 +28,19 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
+      - name: Check Supabase env
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          echo "Supabase URL set: ${VITE_SUPABASE_URL:+yes}"
+          echo "Supabase URL length: ${#VITE_SUPABASE_URL}"
+          echo "Supabase anon key set: ${VITE_SUPABASE_ANON_KEY:+yes}"
+          echo "Supabase anon key length: ${#VITE_SUPABASE_ANON_KEY}"
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "ERROR: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing."
+            exit 1
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build profile frontend
@@ -37,9 +50,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "Warning: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is not set. Build will continue but the live site may not connect to Supabase."
-          fi
           pnpm --filter @workspace/zeph-profile build
       - name: Configure Pages
         uses: actions/configure-pages@v5
