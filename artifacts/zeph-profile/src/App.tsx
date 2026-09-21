@@ -707,6 +707,16 @@ function App() {
               <span>{viewCount} current total</span>
               <span>local browser stat only</span>
             </div>
+            <div className="admin-view">
+              <strong>storage</strong>
+              <span>{localStorage.getItem(localGuestbookKey) ? 'localStorage active' : 'localStorage empty'}</span>
+              <span>{navigator.userAgent}</span>
+            </div>
+            <div className="admin-view">
+              <strong>window</strong>
+              <span>{window.location.origin}</span>
+              <span>{window.location.pathname}</span>
+            </div>
           </div>
         </aside>
       )}
