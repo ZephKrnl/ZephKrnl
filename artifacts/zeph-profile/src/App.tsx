@@ -35,7 +35,7 @@ function mapSupabaseNote(note: { id: string; name: string; message: string; crea
 async function fetchSupabaseNotes() {
   if (!supabase) throw new Error('Supabase is not configured');
   const { data, error } = await supabase
-    .from('sticky_notes')
+    .from('guestbook')
     .select('id,name,message,created_at,approved')
     .eq('approved', true)
     .order('created_at', { ascending: false })
@@ -47,7 +47,7 @@ async function fetchSupabaseNotes() {
 async function submitSupabaseNote(name: string, message: string, approved: boolean) {
   if (!supabase) throw new Error('Supabase is not configured');
   const { error } = await supabase
-    .from('sticky_notes')
+    .from('guestbook')
     .insert({ name, message, approved });
   if (error) throw new Error(`Supabase note submission failed: ${error.message}`);
 }

@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createClient } from '@supabase/supabase-js';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
@@ -61,6 +62,13 @@ function containsProfanity(value: string) {
 }
 const discordClientId = process.env.DISCORD_CLIENT_ID ?? '1550621385129467975';
 const discordRedirectUri = process.env.DISCORD_REDIRECT_URI ?? 'http://localhost:5173/api/discord/callback';
+const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY;
+const supabaseServer = supabaseUrl && supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null;
 
 function getDiscordClientSecret() {
   if (process.env.DISCORD_CLIENT_SECRET) return process.env.DISCORD_CLIENT_SECRET;
@@ -80,6 +88,56 @@ function sendJson(response: ServerResponse, status: number, data: unknown) {
     'Cache-Control': 'no-store',
   });
   response.end(JSON.stringify(data));
+}
+
+async function getSupabaseViewStats() {
+  if (!supabaseServer) return null;
+
+  const [{ count, error: countError }, { data, error }] = await Promise.all([
+    supabaseServer.from('site_views').select('*', { count: 'exact', head: true }),
+    supabaseServer.from('site_views').select('viewed_at,device,model,os_version,browser,region,provider').order('viewed_at', { ascending: false }).limit(100),
+  ]);
+
+  if (countError || error) {
+    return null;
+  }
+
+  return {
+    total: count ?? 0,
+    history: (data ?? []).map((entry) => ({
+      viewedAt: String(entry.viewed_at ?? ''),
+      device: String(entry.device ?? 'unknown'),
+      model: String(entry.model ?? 'unknown model'),
+      osVersion: String(entry.os_version ?? 'version hidden'),
+      browser: String(entry.browser ?? 'unknown browser'),
+      region: String(entry.region ?? 'unknown region'),
+      provider: String(entry.provider ?? 'unknown provider'),
+    })),
+  };
+}
+
+async function saveSupabaseViewRecord(record: {
+  viewedAt: string;
+  device: string;
+  model: string;
+  osVersion: string;
+  browser: string;
+  region: string;
+  provider: string;
+}) {
+  if (!supabaseServer) return false;
+
+  const { error } = await supabaseServer.from('site_views').insert({
+    viewed_at: record.viewedAt,
+    device: record.device,
+    model: record.model,
+    os_version: record.osVersion,
+    browser: record.browser,
+    region: record.region,
+    provider: record.provider,
+  });
+
+  return !error;
 }
 
 async function readBody(request: IncomingMessage) {
@@ -236,6 +294,15 @@ function discordOAuthPlugin() {
             sendJson(response, 401, { error: 'Admin authentication required.' });
             return;
           }
+
+          if (supabaseServer) {
+            const fromSupabase = await getSupabaseViewStats();
+            if (fromSupabase) {
+              sendJson(response, 200, { total: fromSupabase.total, history: fromSupabase.history.slice().reverse() });
+              return;
+            }
+          }
+
           sendJson(response, 200, { total: siteData.totalViews, history: siteData.viewHistory.slice(-100).reverse() });
           return;
         }
@@ -327,11 +394,12 @@ function discordOAuthPlugin() {
           const visitorKey = getVisitorKey(request);
           const now = Date.now();
           const lastView = viewVisitors.get(visitorKey);
+
+          let totalViews = siteData.totalViews;
           if (!lastView || now - lastView >= 24 * 60 * 60 * 1000) {
             viewVisitors.set(visitorKey, now);
             const network = await getNetworkDetails(request);
-            siteData.totalViews += 1;
-            siteData.viewHistory.push({
+            const record = {
               viewedAt: new Date(now).toISOString(),
               device: getClientCategory(request),
               model: getDeviceModel(request),
@@ -339,10 +407,25 @@ function discordOAuthPlugin() {
               region: network.region,
               provider: network.provider,
               browser: 'approximate',
-            });
-            saveSiteData(siteData);
+            };
+
+            if (supabaseServer) {
+              const saved = await saveSupabaseViewRecord(record);
+              if (saved) {
+                const stats = await getSupabaseViewStats();
+                totalViews = stats?.total ?? totalViews;
+              }
+            } else {
+              siteData.totalViews += 1;
+              siteData.viewHistory.push({
+                ...record,
+              });
+              saveSiteData(siteData);
+              totalViews = siteData.totalViews;
+            }
           }
-          sendJson(response, 200, { views: siteData.totalViews });
+
+          sendJson(response, 200, { views: totalViews });
           return;
         }
 
