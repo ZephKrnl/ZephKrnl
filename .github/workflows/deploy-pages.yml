@@ -28,7 +28,7 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
-      - name: Check Supabase env
+      - name: Check optional Supabase env
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
@@ -37,9 +37,10 @@ jobs:
           echo "Supabase URL length: ${#VITE_SUPABASE_URL}"
           echo "Supabase anon key set: ${VITE_SUPABASE_ANON_KEY:+yes}"
           echo "Supabase anon key length: ${#VITE_SUPABASE_ANON_KEY}"
-          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "ERROR: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing."
-            exit 1
+          if [ -n "$VITE_SUPABASE_URL" ] && [ -n "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "Supabase is configured; browser mode will use live public access."
+          else
+            echo "No Supabase public credentials configured. The static profile site will run without shared DB features."
           fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
