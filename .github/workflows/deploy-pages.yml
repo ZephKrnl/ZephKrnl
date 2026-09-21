@@ -46,7 +46,7 @@ jobs:
       - name: Build profile frontend
         env:
           PORT: 5173
-          BASE_PATH: /Zephsite/
+          BASE_PATH: /ZephKrnl/
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
         run: |
