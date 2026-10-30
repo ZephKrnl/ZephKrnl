@@ -3,6 +3,16 @@
 A running log of settled decisions, newest first. Each entry says what was
 decided, why, and what would reopen it.
 
+## 2026-10-30 · Monitor architecture approved; both tracks in parallel; Zephyr
+
+- Decided by: owner.
+- Monitor architecture approved as proposed. Spec:
+  `docs/superpowers/specs/2026-10-30-claude-code-monitor-design.md`
+  (awaiting owner review before implementation planning).
+- Build order: monitor and public website advance together.
+- Public site visual direction: Zephyr (calm, light Onest type, slow wind-line
+  field in the existing teal). Website design itself still to be proposed.
+
 ## 2026-10-30 · Live Claude Code monitor is a priority feature
 
 - Decided by: owner.
